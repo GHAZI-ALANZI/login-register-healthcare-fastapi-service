@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8
+    container_name: healthcare-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: healthcare
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      retries: 5
+      timeout: 5s
+
+  api:
+    build: .
+    container_name: healthcare-api
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy  # ✅ Wait for MySQL to be healthy before starting API
+    environment:
+      DATABASE_URL: mysql+pymysql://user:password@db/healthcare
+      SECRET_KEY: your_super_secret_key
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+    ports:
+      - "8000:8000"
+
+volumes:
+  mysql_data:
