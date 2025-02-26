@@ -18,7 +18,7 @@ Python 3.8+ (only for local development)
 
 # 🔹 Clone the Repository
 
-git clone 
+git clone https://github.com/GHAZI-ALANZI/login-register-healthcare-fastapi-service.git
 
 
 # 🔹 Configure Environment Variables
