@@ -2,10 +2,11 @@ from fastapi import FastAPI, Depends, HTTPException, Security, status
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine, Base, get_db
 from models import User, RoleEnum
-from schemas import UserCreate, UserLogin, UserResponse
+from schemas import UserCreate, UserLogin, UserResponse, UserUpdate
 from auth import hash_password, verify_password, create_access_token, decode_token
 from typing import List, Optional
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.middleware.cors import CORSMiddleware  
 
 Base.metadata.create_all(bind=engine)
 
@@ -29,6 +30,21 @@ create_default_admin()
 
 app = FastAPI()
 
+#  Allow requests from Angular frontend
+origins = [
+    "http://localhost:4200",  # Angular Dev Server
+    "http://127.0.0.1:4200",
+    "http://localhost", 
+    "http://127.0.0.1"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  #  Allow requests from these origins
+    allow_credentials=True,
+    allow_methods=["*"],  #  Allow all methods (GET, POST, PUT, DELETE)
+    allow_headers=["*"],  #  Allow all headers
+)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 # ** check from current user **
@@ -99,7 +115,12 @@ def get_user_by_username(username: str, db: Session = Depends(get_db), current_u
 
 # ** just Admin can update info of user **
 @app.put("/user/update/{user_id}", response_model=UserResponse)
-def update_user(user_id: int, updated_user: UserCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def update_user(
+    user_id: int, 
+    updated_user: UserUpdate,  # ✅ Use `UserUpdate` schema for optional updates
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
     if current_user.role != RoleEnum.Admin:
         raise HTTPException(status_code=403, detail="Only admins can update users")
 
@@ -107,14 +128,21 @@ def update_user(user_id: int, updated_user: UserCreate, db: Session = Depends(ge
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if updated_user.password != updated_user.confirm_password:
-        raise HTTPException(status_code=400, detail="Passwords do not match")
+    # ✅ Ensure passwords match (if updating password)
+    if updated_user.password and updated_user.confirm_password:
+        if updated_user.password != updated_user.confirm_password:
+            raise HTTPException(status_code=400, detail="Passwords do not match")
+        user.password = hash_password(updated_user.password)  # ✅ Hash new password
 
-    user.username = updated_user.username
-    user.email = updated_user.email
-    user.password = hash_password(updated_user.password)
-    user.department = updated_user.department
-    user.role = updated_user.role
+    # ✅ Update only provided fields
+    if updated_user.username:
+        user.username = updated_user.username
+    if updated_user.email:
+        user.email = updated_user.email
+    if updated_user.department:
+        user.department = updated_user.department
+    if updated_user.role:
+        user.role = updated_user.role
 
     db.commit()
     db.refresh(user)

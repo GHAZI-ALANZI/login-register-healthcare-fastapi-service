@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel, EmailStr, Field
 from models import RoleEnum
 import re
@@ -42,6 +43,16 @@ class UserResponse(BaseModel):
     email: EmailStr
     department: str
     role: RoleEnum
+
+
+    # ✅ Allow Partial Updates
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    confirm_password: Optional[str] = None
+    department: Optional[str] = None
+    role: Optional[RoleEnum] = None
 
     class Config:
         from_attributes = True
