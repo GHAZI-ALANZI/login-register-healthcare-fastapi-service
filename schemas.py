@@ -1,8 +1,10 @@
+import datetime
 from typing import Optional
 from pydantic import BaseModel, EmailStr, Field
 from models import RoleEnum
 import re
 from fastapi import HTTPException
+from datetime import datetime
 
 def validate_password(password: str):
     """ check if password match secure requirements"""
@@ -25,6 +27,7 @@ class UserCreate(BaseModel):
     confirm_password: str
     department: str
     role: RoleEnum
+   
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -43,7 +46,8 @@ class UserResponse(BaseModel):
     email: EmailStr
     department: str
     role: RoleEnum
-
+    last_login: Optional[datetime]
+    is_online: Optional[bool]
 
     # ✅ Allow Partial Updates
 class UserUpdate(BaseModel):
@@ -53,6 +57,8 @@ class UserUpdate(BaseModel):
     confirm_password: Optional[str] = None
     department: Optional[str] = None
     role: Optional[RoleEnum] = None
+    last_login: Optional[datetime] = None  
+    is_online: Optional[bool] = None 
 
     class Config:
         from_attributes = True

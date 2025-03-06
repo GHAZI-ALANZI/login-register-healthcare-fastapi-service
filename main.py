@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import FastAPI, Depends, HTTPException, Security, status
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine, Base, get_db
@@ -52,9 +53,17 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     payload = decode_token(token)
     if not payload:
         raise HTTPException(status_code=401, detail="Invalid token")
+
     user = db.query(User).filter(User.username == payload["sub"]).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # If the token is expired, mark user as offline
+    if payload.get("exp") < datetime.utcnow().timestamp():
+        user.is_online = False
+        db.commit()
+        raise HTTPException(status_code=401, detail="Session expired, please login again")
+
     return user
 
 # ** just Admin can add new user **
@@ -80,7 +89,12 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     user = db.query(User).filter(User.username == form_data.username).first()
     if not user or not verify_password(form_data.password, user.password):
         raise HTTPException(status_code=400, detail="Invalid username or password")
-    
+
+    # Update last login and set user as online
+    user.last_login = datetime.utcnow()
+    user.is_online = True
+    db.commit()
+
     access_token = create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -166,4 +180,26 @@ def delete_user(
     db.delete(user)
     db.commit()
     return {"message": "User deleted successfully"}
+
+@app.get("/user/status/{username}")
+def get_user_status(username: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {
+        "username": user.username,
+        "is_online": user.is_online,
+        "last_login": user.last_login
+    }
+@app.post("/logout")
+def logout(current_user: User = Security(get_current_user, scopes=["user"]), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == current_user.username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.is_online = False
+    db.commit()
+
+    return {"message": f"User {user.username} logged out successfully"}
 

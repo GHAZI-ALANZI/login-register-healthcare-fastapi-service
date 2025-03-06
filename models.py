@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Enum
+from datetime import datetime
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Enum
 from database import Base
 import enum
 
@@ -16,3 +17,5 @@ class User(Base):
     password = Column(String(255), nullable=False)
     department = Column(String(100), nullable=False)
     role = Column(Enum(RoleEnum), default=RoleEnum.Employee, nullable=False)
+    last_login = Column(DateTime, default=datetime.utcnow)  # Track last login time
+    is_online = Column(Boolean, default=False)  # Track online status
